@@ -1,6 +1,6 @@
 # ============================================================
-# app.py — Inventory Risk Pro (FINAL PROFESSIONAL MINIMALIST)
-# Ultra-Clean Landing Page • No Sample Data • Enterprise Ready
+# app.py — Inventory Risk Pro (FINAL MINIMALIST PROFESSIONAL)
+# Ultra-Clean Landing Page • No Extras • Enterprise Ready
 # Built by Freda Erinmwingbovo • Abuja, Nigeria • January 2026
 # ============================================================
 
@@ -29,19 +29,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<h1>📦 Inventory Risk Pro</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'>Enterprise Inventory Optimization • Excel & CSV</p>", unsafe_allow_html=True)
+st.markdown("<p class='subtitle'>Enterprise Inventory Optimization</p>", unsafe_allow_html=True)
 
-# Single, clean uploader — the only thing on the landing page
+# Single uploader — nothing else on landing page
 uploaded_file = st.file_uploader(
-    "Upload your current inventory file to begin analysis",
+    "Upload your current inventory file",
     type=["csv", "xlsx", "xls"],
     label_visibility="collapsed",
-    help="Supported formats: CSV, Excel (.xlsx, .xls) • Max 200MB"
+    help="CSV or Excel • Max 200MB"
 )
 
 if uploaded_file is not None:
     try:
-        # Load file with robust encoding
+        # Load file
         if uploaded_file.name.endswith(('.xlsx', '.xls')):
             raw_df = pd.read_excel(uploaded_file)
         else:
@@ -73,29 +73,15 @@ if uploaded_file is not None:
         if missing_core:
             st.warning("This file appears to be sales transaction data, not current inventory levels.")
             st.info("""
-This app requires a snapshot of your **current stock on hand**.
+This app requires current stock snapshot data.
 
-We can build a custom version using your sales history for forecasting, reorders, or full analytics.
+We can build a custom tool using your sales data.
 
-**Interested in a tailored solution?**  
-📧 fredaerins@gmail.com
+Contact: fredaerins@gmail.com
             """)
-
-            template_data = {
-                "product_id": [101, 102, 103],
-                "product_name": ["Wireless Mouse", "USB Cable", "Laptop Stand"],
-                "current_stock": [45, 120, 18],
-                "avg_daily_sales": [8, 15, 3],
-                "unit_cost_ngn": [12000, 3000, 45000],
-                "lead_time_days": [10, 5, 21],
-                "safety_stock_days": [5, 3, 7]
-            }
-            template_df = pd.DataFrame(template_data)
-            csv_template = template_df.to_csv(index=False).encode('utf-8')
-            st.download_button("⬇️ Download Sample Template", csv_template, "sample_inventory_template.csv", "text/csv")
             st.stop()
 
-        # Proceed with correct data
+        # Proceed
         df = raw_df[[mapped[col] for col in mapped]].copy()
         df.columns = list(mapped.keys())
 
