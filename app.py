@@ -1,6 +1,6 @@
 # ============================================================
-# app.py — Inventory Risk Pro (FINAL CLEAN PROFESSIONAL VERSION)
-# Minimalist UI • No Duplicates • Production-Ready
+# app.py — Inventory Risk Pro (FINAL NO-DUPLICATES CLEAN VERSION)
+# Single Uploader • Professional Landing Page • Production-Ready
 # Built by Freda Erinmwingbovo • Abuja, Nigeria • January 2026
 # ============================================================
 
@@ -28,18 +28,17 @@ st.markdown("""
     h1 {color: #1e88e5; text-align: center;}
     .stTabs [data-baseweb="tab"] {font-size: 18px; font-weight: bold;}
     .recommendation {background-color: #e8f5e9; padding: 12px; border-radius: 8px; border-left: 5px solid #388e3c;}
-    .center {text-align: center; margin-top: 40px;}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 class='center'>📦 Inventory Risk Pro</h1>", unsafe_allow_html=True)
-st.markdown("<p class='center' style='font-size: 22px; margin-bottom: 40px;'>Enterprise Inventory Optimization • Excel & CSV</p>", unsafe_allow_html=True)
+st.markdown("<h1>📦 Inventory Risk Pro</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 22px; margin-bottom: 60px;'>Enterprise Inventory Optimization • Excel & CSV</p>", unsafe_allow_html=True)
 
-# Single, clean uploader
+# SINGLE UPLOADER — NO DUPLICATES
 uploaded_file = st.file_uploader(
-    "Upload your current inventory file (CSV or Excel)",
+    "Upload your current inventory file",
     type=["csv", "xlsx", "xls"],
-    help="Drag & drop or click to browse • Max 200MB"
+    help="Drag & drop or click to browse • Max 200MB • Excel or CSV"
 )
 
 if uploaded_file is not None:
@@ -72,14 +71,15 @@ if uploaded_file is not None:
                 if col in required_core:
                     missing_core.append(col)
 
+        # Wrong data handling
         if missing_core:
             st.warning("This file appears to be sales transaction data, not current inventory levels.")
             st.info("""
 Most businesses start with sales data — that's okay!
 
-This app needs a **current stock snapshot** (how many units you have now + average sales + cost).
+This app needs a **current stock snapshot**.
 
-We can build a custom tool using your sales history for forecasting, reorders, or full dashboard.
+We can build a custom tool using your sales history for forecasting or full dashboard.
 
 **Interested?**  
 📧 fredaerins@gmail.com
@@ -99,7 +99,7 @@ We can build a custom tool using your sales history for forecasting, reorders, o
             st.download_button("⬇️ Download Sample Template", csv_template, "sample_inventory_template.csv", "text/csv")
             st.stop()
 
-        # Proceed with correct data
+        # Correct data — proceed
         df = raw_df[[mapped[col] for col in mapped]].copy()
         df.columns = list(mapped.keys())
 
@@ -178,8 +178,8 @@ We can build a custom tool using your sales history for forecasting, reorders, o
             col1, col2 = st.columns(2)
             with col1:
                 st.subheader("ABC Distribution")
-                fig, ax = plt.subplots(figsize=(6, 5))
-                df['abc_class'].value_counts().plot.pie(autopct='%1.1f%%', ax=ax, colors=['#4caf50', '#ff9800', '#f44336'])
+                fig, ax = plt.subplots()
+                df['abc_class'].value_counts().plot.pie(autopct='%1.1f%%', ax=ax)
                 st.pyplot(fig)
             with col2:
                 st.subheader("Risk Breakdown")
@@ -188,7 +188,7 @@ We can build a custom tool using your sales history for forecasting, reorders, o
                 slow = df['slow_moving'].sum()
                 dead = df['dead_stock'].sum()
                 healthy = len(df) - (stockout + over + slow + dead)
-                fig, ax = plt.subplots(figsize=(6, 5))
+                fig, ax = plt.subplots()
                 ax.pie([healthy, stockout, over, slow, dead], labels=['Healthy', 'Stockout', 'Overstock', 'Slow', 'Dead'], autopct='%1.1f%%')
                 st.pyplot(fig)
 
@@ -238,31 +238,13 @@ We can build a custom tool using your sales history for forecasting, reorders, o
         st.error(f"File error: {e}")
 
 else:
-    # Clean, elegant landing page
+    # Clean landing page — no duplicates
     st.markdown("<div style='text-align: center; margin-top: 80px; margin-bottom: 60px;'>", unsafe_allow_html=True)
     st.markdown("<h3 style='color: #666;'>Ready to optimize your inventory?</h3>", unsafe_allow_html=True)
     st.markdown("<p style='color: #888; font-size: 18px;'>Upload your current stock data to get instant insights</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Single uploader
-    uploaded_file = st.file_uploader("", type=["csv", "xlsx", "xls"], label_visibility="collapsed")
-
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Load Sample Data & Run Analysis"):
-            sample_data = {
-                "product_id": [101, 102, 103, 104, 105],
-                "product_name": ["Wireless Mouse", "USB Cable", "Laptop Stand", "Webcam", "External HDD"],
-                "current_stock": [45, 120, 18, 8, 32],
-                "avg_daily_sales": [8, 15, 3, 2, 5],
-                "unit_cost_ngn": [12000, 3000, 45000, 75000, 80000],
-                "lead_time_days": [10, 5, 21, 14, 30],
-                "safety_stock_days": [5, 3, 7, 5, 10]
-            }
-            df = pd.DataFrame(sample_data)
-            st.session_state['sample_loaded'] = True
-            st.rerun()
+    # No second uploader — only one in the code above
 
     with st.expander("📋 Data format help"):
         st.markdown("""
