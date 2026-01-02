@@ -1,6 +1,6 @@
 # ============================================================
-# app.py — Inventory Risk Pro (FINAL PROFESSIONAL VERSION)
-# Excel/CSV • Wrong Data Handling • Lead Generation • Enterprise-Ready
+# app.py — Inventory Risk Pro (FINAL FULL & CLEAN)
+# All Tabs Restored • Clean Landing Page • Production-Ready
 # Built by Freda Erinmwingbovo • Abuja, Nigeria • January 2026
 # ============================================================
 
@@ -38,30 +38,26 @@ uploaded_file = st.file_uploader("📁 Upload your inventory file (CSV or Excel 
 
 if uploaded_file is not None:
     try:
-        # Robust file reading with encoding fallback
+        # Load file with encoding fallback
         if uploaded_file.name.endswith(('.xlsx', '.xls')):
             raw_df = pd.read_excel(uploaded_file)
-            st.info("✅ Excel file loaded successfully")
         else:
             try:
                 raw_df = pd.read_csv(uploaded_file)
             except UnicodeDecodeError:
                 uploaded_file.seek(0)
                 raw_df = pd.read_csv(uploaded_file, encoding='latin-1')
-            except Exception:
+            except:
                 uploaded_file.seek(0)
                 raw_df = pd.read_csv(uploaded_file, encoding='cp1252', errors='replace')
-            st.info("✅ CSV file loaded (encoding adjusted automatically)")
 
-        # Required core + optional
+        # Column mapping
         required_core = ['product_id', 'product_name', 'current_stock', 'avg_daily_sales', 'unit_cost_ngn']
         optional = ['lead_time_days', 'safety_stock_days']
 
-        # Fuzzy column matching
         raw_cols_lower = {col.lower(): col for col in raw_df.columns}
         mapped = {}
         missing_core = []
-        missing_optional = []
 
         for col in required_core + optional:
             if col.lower() in raw_cols_lower:
@@ -69,38 +65,26 @@ if uploaded_file is not None:
             else:
                 if col in required_core:
                     missing_core.append(col)
-                else:
-                    missing_optional.append(col)
 
-        # --- FRIENDLY HANDLING OF WRONG DATA TYPE ---
+        # Only show disclaimer if wrong data type
         if missing_core:
-            st.warning("📊 This file appears to be **sales transaction data** (invoices, orders, etc.), not a current inventory snapshot.")
+            st.warning("📊 This file appears to be **sales transaction data** (invoices, orders, etc.), not current inventory levels.")
             st.info("""
-**You're in the right place — this is very common!**
+**Good news — you're not doing anything wrong!**
 
-Most businesses start with sales data from their POS or ERP system.
+Most businesses start with sales data from their POS or ERP.
 
-This app is specifically designed for **current inventory levels**:
-- How many units of each product do you have **right now**?
-- Average daily sales
-- Unit cost
+This app is designed for **current stock snapshots**.
 
-But we can help you go much further using your **sales history**:
-- Build **demand forecasting** from your transactions
-- Create **automatic reorder alerts**
-- Develop a **full inventory + sales dashboard** tailored to your business
+But we can build a **custom tool** using your sales history for:
+- Demand forecasting
+- Automatic reorder alerts
+- Full inventory + sales dashboard
 
-**Need a custom solution for your company?**  
-Let's build it together.
-
-📧 Contact: fredaerins@gmail.com  
-💼 LinkedIn: [Add your LinkedIn if you have one]
-
-I'm here to help turn your data into real savings and efficiency.
+**Need a tailored solution?**  
+📧 fredaerins@gmail.com
             """)
 
-            st.markdown("### Want to try the app now?")
-            st.write("Download this sample inventory template, fill it with your current stock data, and upload it:")
             template_data = {
                 "product_id": [101, 102, 103, 104, 105],
                 "product_name": ["Wireless Mouse", "USB Cable", "Laptop Stand", "Webcam", "External HDD"],
@@ -112,19 +96,14 @@ I'm here to help turn your data into real savings and efficiency.
             }
             template_df = pd.DataFrame(template_data)
             csv_template = template_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                "⬇️ Download Sample Inventory Template",
-                csv_template,
-                "sample_inventory_template.csv",
-                "text/csv"
-            )
+            st.download_button("⬇️ Download Sample Template", csv_template, "sample_inventory_template.csv", "text/csv")
             st.stop()
 
-        # Proceed with valid data
+        # Correct data — proceed
         df = raw_df[[mapped[col] for col in mapped]].copy()
         df.columns = list(mapped.keys())
 
-        # Cleaning
+        # Cleaning & defaults
         numeric_cols = ['current_stock', 'avg_daily_sales', 'unit_cost_ngn']
         if 'lead_time_days' in df.columns:
             numeric_cols.append('lead_time_days')
@@ -140,17 +119,14 @@ I'm here to help turn your data into real savings and efficiency.
         df['product_name'] = df['product_name'].fillna("Unnamed").astype(str).str.strip()
         df['product_name'] = df['product_name'].replace(['', 'nan'], 'Unnamed Product')
 
-        # Defaults
         if 'lead_time_days' not in df.columns:
             df['lead_time_days'] = 14
-            st.info("lead_time_days not found → using default: 14 days")
         if 'safety_stock_days' not in df.columns:
             df['safety_stock_days'] = 7
-            st.info("safety_stock_days not found → using default: 7 days")
 
-        st.success(f"✅ Analysis complete: {len(df):,} products processed")
+        st.success(f"✅ Analysis ready: {len(df):,} products")
 
-        # --- CALCULATIONS ---
+        # Calculations
         df['days_on_hand'] = df['current_stock'] / (df['avg_daily_sales'] + 0.01)
         df['reorder_point'] = df['avg_daily_sales'] * (df['lead_time_days'] + df['safety_stock_days'])
         df['stockout_risk'] = df['current_stock'] < df['reorder_point']
@@ -174,10 +150,10 @@ I'm here to help turn your data into real savings and efficiency.
             recs = []
             if row['stockout_risk']: recs.append("URGENT REORDER")
             if row['dead_stock']: recs.append("LIQUIDATE DEAD STOCK")
-            if row['overstock_risk']: recs.append("REDUCE FUTURE ORDERS")
+            if row['overstock_risk']: recs.append("REDUCE ORDERS")
             if row['slow_moving']: recs.append("PROMOTE TO CLEAR")
-            if row['abc_class'] == 'A': recs.append("HIGH PRIORITY A-ITEM")
-            if not recs: recs.append("HEALTHY STOCK")
+            if row['abc_class'] == 'A': recs.append("HIGH PRIORITY")
+            if not recs: recs.append("HEALTHY")
             return " • ".join(recs)
 
         df['recommendation'] = df.apply(get_rec, axis=1)
@@ -189,21 +165,69 @@ I'm here to help turn your data into real savings and efficiency.
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Products Analyzed", f"{len(df):,}")
         col2.metric("A-Class Items", (df['abc_class']=='A').sum())
-        col3.metric("Cash-at-Risk (₦)", f"{total_cash_risk:,.0f}", delta_color="inverse")
-        col4.metric("Stockout Risk Items", df['stockout_risk'].sum(), delta_color="inverse")
+        col3.metric("Cash-at-Risk (₦)", f"{total_cash_risk:,.0f}")
+        col4.metric("Stockout Risk Items", df['stockout_risk'].sum())
 
         st.markdown("---")
 
-        # Tabs (simplified for brevity — keep your preferred structure)
+        # ALL TABS RESTORED
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "📊 ABC Classification", "⚠️ Risk Items", "💰 Cost Simulator", "📄 Executive Report", "📈 Export Data"
         ])
 
-        # [Keep your previous tab content here — ABC charts, risk table, EOQ simulator, PDF, export]
+        with tab1:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("ABC Distribution")
+                fig, ax = plt.subplots()
+                df['abc_class'].value_counts().plot.pie(autopct='%1.1f%%', ax=ax)
+                st.pyplot(fig)
+            with col2:
+                st.subheader("Risk Breakdown")
+                stockout = df['stockout_risk'].sum()
+                over = df['overstock_risk'].sum()
+                slow = df['slow_moving'].sum()
+                dead = df['dead_stock'].sum()
+                healthy = len(df) - (stockout + over + slow + dead)
+                fig, ax = plt.subplots()
+                ax.pie([healthy, stockout, over, slow, dead], labels=['Healthy', 'Stockout', 'Overstock', 'Slow', 'Dead'], autopct='%1.1f%%')
+                st.pyplot(fig)
+
+        with tab2:
+            st.subheader("Items Needing Action")
+            action_items = df[df['stockout_risk'] | df['dead_stock'] | df['overstock_risk'] | df['slow_moving'] | (df['abc_class']=='A')]
+            display = action_items[['product_name', 'days_on_hand', 'reorder_point', 'current_stock',
+                                    'holding_cost_ngn', 'recommendation']].copy()
+            display['holding_cost_ngn'] = display['holding_cost_ngn'].apply(lambda x: f"₦{x:,.0f}")
+            st.dataframe(display.head(50), use_container_width=True)
+
+        with tab3:
+            st.subheader("EOQ Cost Optimization Simulator")
+            order_cost = st.slider("Average Cost per Order (₦)", 500, 10000, 3000)
+            eoq = np.sqrt(2 * df['avg_daily_sales'] * 365 * order_cost / (df['unit_cost_ngn'] * 0.25 + 1e-6))
+            optimized_holding = (eoq / 2 * df['unit_cost_ngn'] * 0.25).sum()
+            savings = total_holding - optimized_holding
+            st.markdown(f"<p class='save big-font'>Potential Savings: ₦{savings:,.0f}/year</p>", unsafe_allow_html=True)
+
+        with tab4:
+            if st.button("Generate Executive PDF Report"):
+                buffer = io.BytesIO()
+                doc = SimpleDocTemplate(buffer, pagesize=A4)
+                styles = getSampleStyleSheet()
+                story = [Paragraph("Inventory Risk Pro Report", styles['Title']),
+                         Spacer(1, 20),
+                         Paragraph(f"Date: {datetime.now().strftime('%B %d, %Y')}", styles['Normal'])]
+                data = [["Metric", "Value"],
+                        ["Products", len(df)],
+                        ["Cash-at-Risk", f"₦{total_cash_risk:,.0f}"],
+                        ["Potential Savings", f"₦{savings:,.0f}"]]
+                story.append(Table(data))
+                doc.build(story)
+                buffer.seek(0)
+                st.download_button("Download Report", buffer, "inventory_report.pdf", "application/pdf")
 
         with tab5:
             st.subheader("Download Enriched Dataset")
-            st.write("Includes all calculated columns: reorder_point, stockout_risk, holding_cost_ngn, recommendation, abc_class, cash_at_risk_ngn, etc.")
             st.download_button(
                 "⬇️ Export Full Analysis",
                 df.to_csv(index=False).encode('utf-8'),
@@ -212,22 +236,39 @@ I'm here to help turn your data into real savings and efficiency.
             )
 
     except Exception as e:
-        st.error(f"File processing failed: {e}")
-        st.info("Try saving your file as CSV UTF-8 or Excel format.")
+        st.error(f"File error: {e}")
 
 else:
+    # Clean landing page
     st.info("👆 Upload your current inventory file — Excel or CSV accepted!")
+    
+    st.markdown("### 📋 Required Columns")
     st.markdown("""
-    **Required columns** (names can vary in case/spacing):
-    - product_id
-    - product_name
-    - current_stock
-    - avg_daily_sales
-    - unit_cost_ngn
-
-    **Optional**: lead_time_days, safety_stock_days (defaults used if missing)
-
-    Have sales data instead? No problem — contact fredaerins@gmail.com for a custom solution.
+    • product_id  
+    • product_name  
+    • current_stock  
+    • avg_daily_sales  
+    • unit_cost_ngn
     """)
+    
+    st.markdown("### ⚙️ Optional")
+    st.markdown("""
+    • lead_time_days (default: 14)  
+    • safety_stock_days (default: 7)
+    """)
+    
+    st.markdown("### 🚀 Test the App Now")
+    template_data = {
+        "product_id": [101, 102, 103, 104, 105],
+        "product_name": ["Wireless Mouse", "USB Cable", "Laptop Stand", "Webcam", "External HDD"],
+        "current_stock": [45, 120, 18, 8, 32],
+        "avg_daily_sales": [8, 15, 3, 2, 5],
+        "unit_cost_ngn": [12000, 3000, 45000, 75000, 80000],
+        "lead_time_days": [10, 5, 21, 14, 30],
+        "safety_stock_days": [5, 3, 7, 5, 10]
+    }
+    template_df = pd.DataFrame(template_data)
+    csv_template = template_df.to_csv(index=False).encode('utf-8')
+    st.download_button("⬇️ Download Sample Template", csv_template, "sample_inventory_template.csv", "text/csv")
 
 st.caption("Built with ❤️ by Freda Erinmwingbovo • Abuja, Nigeria • January 2026")
