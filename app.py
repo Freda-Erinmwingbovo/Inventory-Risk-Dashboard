@@ -1,6 +1,6 @@
 # ============================================================
-# app.py — Inventory Risk Pro (COMPLETE & BULLETPROOF FINAL)
-# All Columns Included • Dirty Data Safe • Enterprise Features
+# app.py — Inventory Risk Pro (FINAL FIXED & COMPLETE)
+# All Columns • Bulletproof • Production-Grade
 # Built by Freda Erinmwingbovo • Abuja, Nigeria • January 2026
 # ============================================================
 
@@ -44,7 +44,6 @@ if uploaded_file is not None:
         required = ['product_id', 'product_name', 'current_stock', 'avg_daily_sales',
                     'unit_cost_ngn', 'lead_time_days', 'safety_stock_days']
 
-        # Fuzzy column matching
         raw_cols_lower = {col.lower(): col for col in raw_df.columns}
         mapped_cols = {}
         missing = []
@@ -63,7 +62,7 @@ if uploaded_file is not None:
         df = raw_df[[mapped_cols[col] for col in required]].copy()
         df.columns = required
 
-        # --- BULLETPROOF CLEANING ---
+        # Bulletproof cleaning
         numeric_cols = ['current_stock', 'avg_daily_sales', 'unit_cost_ngn', 'lead_time_days', 'safety_stock_days']
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce')
@@ -82,9 +81,9 @@ if uploaded_file is not None:
 
         if dropped_rows > 0:
             with st.expander("🧹 Cleaning summary"):
-                st.info(f"Removed {dropped_rows} invalid rows • Fixed negatives & text in numbers")
+                st.info(f"Removed {dropped_rows} invalid rows • Fixed negatives & text values")
 
-        # --- FULL CALCULATIONS (ALL COLUMNS YOU REQUESTED) ---
+        # --- ALL CALCULATED COLUMNS ---
         df['days_on_hand'] = df['current_stock'] / (df['avg_daily_sales'] + 0.01)
         df['reorder_point'] = df['avg_daily_sales'] * (df['lead_time_days'] + df['safety_stock_days'])
         df['stockout_risk'] = df['current_stock'] < df['reorder_point']
@@ -94,7 +93,7 @@ if uploaded_file is not None:
         df['holding_cost_ngn'] = df['current_stock'] * df['unit_cost_ngn'] * 0.25
         df['potential_savings_ngn'] = np.where(df['dead_stock'], df['holding_cost_ngn'], 0)
 
-        # Enterprise additions
+        # Enterprise features
         df['annual_value_ngn'] = df['avg_daily_sales'] * 365 * df['unit_cost_ngn']
         df = df.sort_values('annual_value_ngn', ascending=False)
         df['cumulative_pct'] = df['annual_value_ngn'].cumsum() / df['annual_value_ngn'].sum()
@@ -109,17 +108,17 @@ if uploaded_file is not None:
         def get_rec(row):
             recs = []
             if row['stockout_risk']:
-                recs.append("**URGENT REORDER** – high stockout risk")
+                recs.append("URGENT REORDER – high stockout risk")
             if row['dead_stock']:
-                recs.append("**LIQUIDATE** – recover capital from dead stock")
+                recs.append("LIQUIDATE – recover capital")
             if row['overstock_risk']:
-                recs.append("**REDUCE ORDERS** – overstocked")
+                recs.append("REDUCE ORDERS – overstock")
             if row['slow_moving']:
-                recs.append("**PROMOTE** – clear slow-moving items")
+                recs.append("PROMOTE – clear slow-moving")
             if row['abc_class'] == 'A':
-                recs.append("**A-CLASS** – prioritize control")
+                recs.append("A-CLASS – high priority")
             if not recs:
-                recs.append("Healthy stock level")
+                recs.append("Healthy stock")
             return " • ".join(recs)
 
         df['recommendation'] = df.apply(get_rec, axis=1)
@@ -145,32 +144,39 @@ if uploaded_file is not None:
             with col1:
                 st.subheader("ABC Classification")
                 fig, ax = plt.subplots()
-                df['abc_class'].value_counts().plot.pie(autopct='%1.1f%%', ax=ax)
+                df['abc_class'].value_counts().plot.pie(autopct='%1.1f%%', ax=ax, colors=['#4caf50', '#ff9800', '#f44336'])
                 st.pyplot(fig)
             with col2:
                 st.subheader("Risk Breakdown")
-                labels = ['Stockout', 'Overstock', 'Slow', 'Dead', 'Healthy']
-                sizes = [df['stockout_risk'].sum(), df['overstock_risk'].sum(), df['slow_moving'].sum(), df['dead_stock'].sum(),
-                         len(df) - sum(sizes)]
+                stockout_count = df['stockout_risk'].sum()
+                overstock_count = df['overstock_risk'].sum()
+                slow_count = df['slow_moving'].sum()
+                dead_count = df['dead_stock'].sum()
+                healthy_count = len(df) - (stockout_count + overstock_count + slow_count + dead_count)
+                labels = ['Healthy', 'Stockout Risk', 'Overstock', 'Slow-Moving', 'Dead Stock']
+                sizes = [healthy_count, stockout_count, overstock_count, slow_count, dead_count]
                 fig, ax = plt.subplots()
-                ax.pie(sizes, labels=labels, autopct='%1.1f%%')
+                ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=sns.color_palette("viridis", 5))
                 st.pyplot(fig)
 
         with tab2:
             st.subheader("Items Needing Action")
             action_items = df[df['stockout_risk'] | df['dead_stock'] | df['overstock_risk'] | df['slow_moving'] | (df['abc_class']=='A')]
-            display = action_items[['product_name', 'days_on_hand', 'reorder_point', 'holding_cost_ngn',
-                                    'stockout_risk', 'dead_stock', 'recommendation']].copy()
+            action_items = action_items.sort_values('holding_cost_ngn', ascending=False)
+
+            display = action_items[['product_name', 'days_on_hand', 'reorder_point', 'current_stock',
+                                    'holding_cost_ngn', 'stockout_risk', 'dead_stock', 'slow_moving',
+                                    'overstock_risk', 'recommendation']].copy()
             display['holding_cost_ngn'] = display['holding_cost_ngn'].apply(lambda x: f"₦{x:,.0f}")
             st.dataframe(display.head(50), use_container_width=True)
 
             for _, row in action_items.head(10).iterrows():
-                with st.expander(f"{row['product_name']} – {'🔴 High Risk' if row['stockout_risk'] else '🟡 Attention'}"):
+                with st.expander(f"{row['product_name']} – {'🔴 Urgent' if row['stockout_risk'] else '🟡 Review'}"):
                     st.markdown(f"<div class='recommendation'>{row['recommendation']}</div>", unsafe_allow_html=True)
 
         with tab3:
-            st.subheader("Reorder Optimization Simulator")
-            order_cost = st.slider("Cost per Order (₦)", 500, 10000, 3000)
+            st.subheader("EOQ Optimization Simulator")
+            order_cost = st.slider("Average Cost per Order (₦)", 500, 10000, 3000)
             eoq = np.sqrt(2 * df['avg_daily_sales'] * 365 * order_cost / (df['unit_cost_ngn'] * 0.25 + 1e-6))
             optimized_holding = (eoq / 2 * df['unit_cost_ngn'] * 0.25).sum()
             savings = total_holding - optimized_holding
@@ -180,9 +186,10 @@ if uploaded_file is not None:
             if st.button("Generate Executive PDF"):
                 buffer = io.BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=A4)
-                story = [Paragraph("Inventory Risk Pro Report", getSampleStyleSheet()['Title']),
+                styles = getSampleStyleSheet()
+                story = [Paragraph("Inventory Risk Pro Report", styles['Title']),
                          Spacer(1, 20),
-                         Paragraph(f"Date: {datetime.now().strftime('%B %d, %Y')}", getSampleStyleSheet()['Normal'])]
+                         Paragraph(f"Date: {datetime.now().strftime('%B %d, %Y')}", styles['Normal'])]
                 data = [["Metric", "Value"],
                         ["Products Analyzed", len(df)],
                         ["Cash-at-Risk", f"₦{total_cash_risk:,.0f}"],
@@ -193,12 +200,12 @@ if uploaded_file is not None:
                 st.download_button("Download PDF", buffer, "inventory_report.pdf", "application/pdf")
 
         with tab5:
-            st.subheader("Download Full Enriched Dataset")
-            st.write("**All columns included**: original + days_on_hand, reorder_point, risks, costs, ABC, recommendation, etc.")
+            st.subheader("Download Complete Enriched Dataset")
+            st.write("Includes **all** calculated fields: days_on_hand, reorder_point, stockout_risk, overstock_risk, slow_moving, dead_stock, holding_cost_ngn, potential_savings_ngn, recommendation, abc_class, cash_at_risk_ngn, etc.")
             st.download_button(
-                "⬇️ Export Complete Analysis CSV",
+                "⬇️ Export Full CSV",
                 df.to_csv(index=False).encode('utf-8'),
-                "inventory_full_enriched_analysis.csv",
+                "inventory_complete_analysis.csv",
                 "text/csv"
             )
 
