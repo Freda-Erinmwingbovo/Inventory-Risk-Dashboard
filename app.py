@@ -1,6 +1,6 @@
 # ============================================================
-# app.py — Inventory Risk Pro (FINAL FIXED & COMPLETE + EXCEL SUPPORT)
-# All Columns • Bulletproof • Production-Grade • CSV & Excel
+# app.py — Inventory Risk Pro (FINAL PRODUCTION VERSION)
+# Excel + CSV Support • Optional Columns • Bulletproof • Enterprise-Grade
 # Built by Freda Erinmwingbovo • Abuja, Nigeria • January 2026
 # ============================================================
 
@@ -32,52 +32,62 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<h1>📦 Inventory Risk Pro</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 22px;'>Bulletproof Enterprise Optimization • Supports CSV & Excel</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 22px;'>Enterprise Optimization • Excel & CSV • Smart Defaults • Real-World Ready</p>", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("📁 Upload your inventory file (CSV or Excel)", type=["csv", "xlsx"])
+# --- SUPPORTS BOTH CSV AND EXCEL ---
+uploaded_file = st.file_uploader("📁 Upload your inventory file (CSV or Excel supported)", type=["csv", "xlsx", "xls"])
 
 if uploaded_file is not None:
     try:
-        file_name = uploaded_file.name
-        file_extension = file_name.split('.')[-1].lower()
-
-        if file_extension == 'xlsx':
+        # Read file based on extension
+        if uploaded_file.name.endswith(('.xlsx', '.xls')):
             raw_df = pd.read_excel(uploaded_file)
-            st.info("Excel file detected – reading with pd.read_excel")
+            st.info("✅ Excel file loaded successfully")
         else:
             raw_df = pd.read_csv(uploaded_file)
-            st.info("CSV file detected – reading with pd.read_csv")
+            st.info("✅ CSV file loaded successfully")
 
         initial_rows = len(raw_df)
 
-        required = ['product_id', 'product_name', 'current_stock', 'avg_daily_sales',
-                    'unit_cost_ngn', 'lead_time_days', 'safety_stock_days']
+        # Required + Optional columns
+        required_core = ['product_id', 'product_name', 'current_stock', 'avg_daily_sales', 'unit_cost_ngn']
+        optional = ['lead_time_days', 'safety_stock_days']
 
+        # Fuzzy case-insensitive matching
         raw_cols_lower = {col.lower(): col for col in raw_df.columns}
         mapped_cols = {}
         missing = []
-        for req in required:
-            if req in raw_df.columns:
-                mapped_cols[req] = req
-            elif req.lower() in raw_cols_lower:
-                mapped_cols[req] = raw_cols_lower[req.lower()]
-            else:
-                missing.append(req)
 
-        if missing:
-            st.error(f"Cannot find columns: {', '.join(missing)}")
+        for col in required_core + optional:
+            if col in raw_df.columns:
+                mapped_cols[col] = col
+            elif col.lower() in raw_cols_lower:
+                mapped_cols[col] = raw_cols_lower[col.lower()]
+            else:
+                missing.append(col)
+
+        if missing and set(missing).issubset(optional):
+            st.warning(f"Optional columns not found: {', '.join(missing)}. Using defaults.")
+        elif any(m in required_core for m in missing):
+            st.error(f"Required columns missing: {', '.join([m for m in missing if m in required_core])}. Please check your file.")
             st.stop()
 
-        df = raw_df[[mapped_cols[col] for col in required]].copy()
-        df.columns = required
+        # Select and rename columns
+        df = raw_df[[mapped_cols[col] for col in mapped_cols]].copy()
+        df.columns = list(mapped_cols.keys())
 
-        # Bulletproof cleaning
-        numeric_cols = ['current_stock', 'avg_daily_sales', 'unit_cost_ngn', 'lead_time_days', 'safety_stock_days']
+        # --- BULLETPROOF CLEANING ---
+        numeric_cols = ['current_stock', 'avg_daily_sales', 'unit_cost_ngn']
+        if 'lead_time_days' in df.columns:
+            numeric_cols.append('lead_time_days')
+        if 'safety_stock_days' in df.columns:
+            numeric_cols.append('safety_stock_days')
+
         for col in numeric_cols:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
         before_drop = len(df)
-        df = df.dropna(subset=numeric_cols)
+        df = df.dropna(subset=['current_stock', 'avg_daily_sales', 'unit_cost_ngn'])
         dropped_rows = before_drop - len(df)
 
         df[numeric_cols] = df[numeric_cols].clip(lower=0)
@@ -85,12 +95,20 @@ if uploaded_file is not None:
         df['product_name'] = df['product_name'].fillna("Unnamed").astype(str).str.strip()
         df['product_name'] = df['product_name'].replace(['', 'nan'], 'Unnamed Product')
 
+        # --- OPTIONAL COLUMNS WITH SMART DEFAULTS ---
+        if 'lead_time_days' not in df.columns:
+            df['lead_time_days'] = 14  # Standard default
+            st.info("lead_time_days not provided → using default: 14 days")
+        if 'safety_stock_days' not in df.columns:
+            df['safety_stock_days'] = 7   # Standard default
+            st.info("safety_stock_days not provided → using default: 7 days")
+
         final_rows = len(df)
-        st.success(f"✅ Ready: {final_rows:,} valid products analyzed")
+        st.success(f"✅ Analysis ready: {final_rows:,} valid products")
 
         if dropped_rows > 0:
-            with st.expander("🧹 Cleaning summary"):
-                st.info(f"Removed {dropped_rows} invalid rows • Fixed negatives & text values")
+            with st.expander("🧹 Data cleaning applied"):
+                st.info(f"Removed {dropped_rows} rows with invalid/missing core data")
 
         # --- ALL CALCULATED COLUMNS ---
         df['days_on_hand'] = df['current_stock'] / (df['avg_daily_sales'] + 0.01)
@@ -104,7 +122,7 @@ if uploaded_file is not None:
 
         # Enterprise features
         df['annual_value_ngn'] = df['avg_daily_sales'] * 365 * df['unit_cost_ngn']
-        df = df.sort_values('annual_value_ngn', ascending=False)
+        df = df.sort_values('annual_value_ngn', ascending=False).copy()
         df['cumulative_pct'] = df['annual_value_ngn'].cumsum() / df['annual_value_ngn'].sum()
         df['abc_class'] = np.where(df['cumulative_pct'] <= 0.8, 'A',
                           np.where(df['cumulative_pct'] <= 0.95, 'B', 'C'))
@@ -117,17 +135,17 @@ if uploaded_file is not None:
         def get_rec(row):
             recs = []
             if row['stockout_risk']:
-                recs.append("URGENT REORDER – high stockout risk")
+                recs.append("URGENT REORDER")
             if row['dead_stock']:
-                recs.append("LIQUIDATE – recover capital")
+                recs.append("LIQUIDATE DEAD STOCK")
             if row['overstock_risk']:
-                recs.append("REDUCE ORDERS – overstock")
+                recs.append("REDUCE FUTURE ORDERS")
             if row['slow_moving']:
-                recs.append("PROMOTE – clear slow-moving")
+                recs.append("PROMOTE TO CLEAR")
             if row['abc_class'] == 'A':
-                recs.append("A-CLASS – high priority")
+                recs.append("HIGH PRIORITY A-ITEM")
             if not recs:
-                recs.append("Healthy stock")
+                recs.append("HEALTHY STOCK")
             return " • ".join(recs)
 
         df['recommendation'] = df.apply(get_rec, axis=1)
@@ -157,35 +175,26 @@ if uploaded_file is not None:
                 st.pyplot(fig)
             with col2:
                 st.subheader("Risk Breakdown")
-                stockout_count = df['stockout_risk'].sum()
-                overstock_count = df['overstock_risk'].sum()
-                slow_count = df['slow_moving'].sum()
-                dead_count = df['dead_stock'].sum()
-                healthy_count = len(df) - (stockout_count + overstock_count + slow_count + dead_count)
-                labels = ['Healthy', 'Stockout Risk', 'Overstock', 'Slow-Moving', 'Dead Stock']
-                sizes = [healthy_count, stockout_count, overstock_count, slow_count, dead_count]
+                stockout = df['stockout_risk'].sum()
+                over = df['overstock_risk'].sum()
+                slow = df['slow_moving'].sum()
+                dead = df['dead_stock'].sum()
+                healthy = len(df) - (stockout + over + slow + dead)
                 fig, ax = plt.subplots()
-                ax.pie(sizes, labels=labels, autopct='%1.1f%%', colors=sns.color_palette("viridis", 5))
+                ax.pie([healthy, stockout, over, slow, dead], labels=['Healthy', 'Stockout', 'Overstock', 'Slow', 'Dead'], autopct='%1.1f%%')
                 st.pyplot(fig)
 
         with tab2:
             st.subheader("Items Needing Action")
             action_items = df[df['stockout_risk'] | df['dead_stock'] | df['overstock_risk'] | df['slow_moving'] | (df['abc_class']=='A')]
-            action_items = action_items.sort_values('holding_cost_ngn', ascending=False)
-
             display = action_items[['product_name', 'days_on_hand', 'reorder_point', 'current_stock',
-                                    'holding_cost_ngn', 'stockout_risk', 'dead_stock', 'slow_moving',
-                                    'overstock_risk', 'recommendation']].copy()
+                                    'holding_cost_ngn', 'stockout_risk', 'dead_stock', 'recommendation']].copy()
             display['holding_cost_ngn'] = display['holding_cost_ngn'].apply(lambda x: f"₦{x:,.0f}")
             st.dataframe(display.head(50), use_container_width=True)
 
-            for _, row in action_items.head(10).iterrows():
-                with st.expander(f"{row['product_name']} – {'🔴 Urgent' if row['stockout_risk'] else '🟡 Review'}"):
-                    st.markdown(f"<div class='recommendation'>{row['recommendation']}</div>", unsafe_allow_html=True)
-
         with tab3:
-            st.subheader("EOQ Optimization Simulator")
-            order_cost = st.slider("Average Cost per Order (₦)", 500, 10000, 3000)
+            st.subheader("EOQ Optimization")
+            order_cost = st.slider("Cost per Order (₦)", 500, 10000, 3000)
             eoq = np.sqrt(2 * df['avg_daily_sales'] * 365 * order_cost / (df['unit_cost_ngn'] * 0.25 + 1e-6))
             optimized_holding = (eoq / 2 * df['unit_cost_ngn'] * 0.25).sum()
             savings = total_holding - optimized_holding
@@ -195,12 +204,11 @@ if uploaded_file is not None:
             if st.button("Generate Executive PDF"):
                 buffer = io.BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=A4)
-                styles = getSampleStyleSheet()
-                story = [Paragraph("Inventory Risk Pro Report", styles['Title']),
+                story = [Paragraph("Inventory Risk Pro Report", getSampleStyleSheet()['Title']),
                          Spacer(1, 20),
-                         Paragraph(f"Date: {datetime.now().strftime('%B %d, %Y')}", styles['Normal'])]
+                         Paragraph(f"Date: {datetime.now().strftime('%B %d, %Y')}", getSampleStyleSheet()['Normal'])]
                 data = [["Metric", "Value"],
-                        ["Products Analyzed", len(df)],
+                        ["Products", len(df)],
                         ["Cash-at-Risk", f"₦{total_cash_risk:,.0f}"],
                         ["Potential Savings", f"₦{savings:,.0f}"]]
                 story.append(Table(data))
@@ -209,18 +217,19 @@ if uploaded_file is not None:
                 st.download_button("Download PDF", buffer, "inventory_report.pdf", "application/pdf")
 
         with tab5:
-            st.subheader("Download Complete Enriched Dataset")
-            st.write("Includes **all** calculated fields: days_on_hand, reorder_point, stockout_risk, overstock_risk, slow_moving, dead_stock, holding_cost_ngn, potential_savings_ngn, recommendation, abc_class, cash_at_risk_ngn, etc.")
+            st.subheader("Download Full Enriched Dataset")
+            st.write("Includes all original + calculated columns: reorder_point, stockout_risk, holding_cost_ngn, recommendation, abc_class, cash_at_risk_ngn, etc.")
             st.download_button(
-                "⬇️ Export Full CSV",
+                "⬇️ Export Complete CSV",
                 df.to_csv(index=False).encode('utf-8'),
-                "inventory_complete_analysis.csv",
+                "inventory_full_analysis.csv",
                 "text/csv"
             )
 
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"File processing error: {e}. Check format and try again.")
 else:
-    st.info("Upload your inventory file (CSV or Excel) to begin — works with dirty data!")
+    st.info("Upload your inventory file — Excel (.xlsx) or CSV supported!")
+    st.markdown("**Core required**: product_id, product_name, current_stock, avg_daily_sales, unit_cost_ngn  \n**Optional**: lead_time_days (default 14), safety_stock_days (default 7)")
 
 st.caption("Built with ❤️ by Freda Erinmwingbovo • Abuja, Nigeria • January 2026")
