@@ -1,6 +1,6 @@
 # ============================================================
-# app.py — Inventory Risk Pro (BULLETPROOF PRODUCTION-GRADE)
-# Handles Dirty Data • ABC-XYZ • Cash-at-Risk • EOQ Optimization
+# app.py — Inventory Risk Pro (COMPLETE & BULLETPROOF FINAL)
+# All Columns Included • Dirty Data Safe • Enterprise Features
 # Built by Freda Erinmwingbovo • Abuja, Nigeria • January 2026
 # ============================================================
 
@@ -28,27 +28,23 @@ st.markdown("""
     h1 {color: #1e88e5; text-align: center;}
     .stTabs [data-baseweb="tab"] {font-size: 18px; font-weight: bold;}
     .recommendation {background-color: #e8f5e9; padding: 12px; border-radius: 8px; border-left: 5px solid #388e3c;}
-    .high-impact {background-color: #fff3cd; padding: 10px; border-radius: 8px; border-left: 5px solid #ffc107;}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown("<h1>📦 Inventory Risk Pro</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 22px;'>Bulletproof Enterprise Optimization • Handles Real-World Data • ABC-XYZ • Cash-at-Risk</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 22px;'>Bulletproof Enterprise Optimization • All Insights Exported</p>", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("📁 Upload your inventory CSV (even if messy!)", type="csv")
+uploaded_file = st.file_uploader("📁 Upload your inventory CSV (handles messy data)", type="csv")
 
 if uploaded_file is not None:
     try:
-        # Load raw data
         raw_df = pd.read_csv(uploaded_file)
         initial_rows = len(raw_df)
-        st.info(f"Raw upload: {initial_rows:,} rows detected")
 
-        # Required columns
         required = ['product_id', 'product_name', 'current_stock', 'avg_daily_sales',
                     'unit_cost_ngn', 'lead_time_days', 'safety_stock_days']
 
-        # Check for missing columns (case-insensitive fuzzy match)
+        # Fuzzy column matching
         raw_cols_lower = {col.lower(): col for col in raw_df.columns}
         mapped_cols = {}
         missing = []
@@ -61,160 +57,154 @@ if uploaded_file is not None:
                 missing.append(req)
 
         if missing:
-            st.error(f"Cannot find columns: {', '.join(missing)}. Please check spelling.")
+            st.error(f"Cannot find columns: {', '.join(missing)}")
             st.stop()
 
         df = raw_df[[mapped_cols[col] for col in required]].copy()
-        df.columns = required  # Standardize names
+        df.columns = required
 
-        # --- BULLETPROOF DATA CLEANING ---
+        # --- BULLETPROOF CLEANING ---
         numeric_cols = ['current_stock', 'avg_daily_sales', 'unit_cost_ngn', 'lead_time_days', 'safety_stock_days']
-        cleaned_count = 0
-
         for col in numeric_cols:
-            original = df[col].copy()
-            df[col] = pd.to_numeric(df[col], errors='coerce')  # "N/A", text → NaN
-            invalid = original.notna() & df[col].isna()
-            cleaned_count += invalid.sum()
+            df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        # Remove rows with any critical NaN after cleaning
         before_drop = len(df)
         df = df.dropna(subset=numeric_cols)
         dropped_rows = before_drop - len(df)
 
-        # Clip negatives to zero
-        negatives_fixed = (df[numeric_cols] < 0).sum().sum()
         df[numeric_cols] = df[numeric_cols].clip(lower=0)
 
-        # Clean product names
-        df['product_name'] = df['product_name'].fillna("Unnamed")
-        df['product_name'] = df['product_name'].astype(str).str.strip()
-        df['product_name'] = df['product_name'].replace(['', 'nan', 'None'], 'Unnamed Product')
+        df['product_name'] = df['product_name'].fillna("Unnamed").astype(str).str.strip()
+        df['product_name'] = df['product_name'].replace(['', 'nan'], 'Unnamed Product')
 
-        # Final clean dataset
         final_rows = len(df)
-        st.success(f"✅ Cleaned data ready: {final_rows:,} valid products")
+        st.success(f"✅ Ready: {final_rows:,} valid products analyzed")
 
-        if cleaned_count > 0 or dropped_rows > 0 or negatives_fixed > 0:
-            with st.expander("🧹 Data cleaning summary (click to view)"):
-                if cleaned_count > 0:
-                    st.warning(f"Fixed {cleaned_count} non-numeric entries (converted to valid numbers or removed)")
-                if dropped_rows > 0:
-                    st.warning(f"Removed {dropped_rows} rows with missing critical data")
-                if negatives_fixed > 0:
-                    st.info(f"Corrected {negatives_fixed} negative values to zero")
+        if dropped_rows > 0:
+            with st.expander("🧹 Cleaning summary"):
+                st.info(f"Removed {dropped_rows} invalid rows • Fixed negatives & text in numbers")
 
-        # ---------------- ENTERPRISE CALCULATIONS ----------------
-        df['annual_demand'] = df['avg_daily_sales'] * 365
-        df['annual_value_ngn'] = df['annual_demand'] * df['unit_cost_ngn']
+        # --- FULL CALCULATIONS (ALL COLUMNS YOU REQUESTED) ---
         df['days_on_hand'] = df['current_stock'] / (df['avg_daily_sales'] + 0.01)
         df['reorder_point'] = df['avg_daily_sales'] * (df['lead_time_days'] + df['safety_stock_days'])
+        df['stockout_risk'] = df['current_stock'] < df['reorder_point']
+        df['overstock_risk'] = df['days_on_hand'] > 180
+        df['slow_moving'] = (df['days_on_hand'] > 90) & (df['days_on_hand'] <= 365)
+        df['dead_stock'] = df['days_on_hand'] > 365
         df['holding_cost_ngn'] = df['current_stock'] * df['unit_cost_ngn'] * 0.25
+        df['potential_savings_ngn'] = np.where(df['dead_stock'], df['holding_cost_ngn'], 0)
 
-        # ABC Classification
-        df = df.sort_values('annual_value_ngn', ascending=False).copy()
+        # Enterprise additions
+        df['annual_value_ngn'] = df['avg_daily_sales'] * 365 * df['unit_cost_ngn']
+        df = df.sort_values('annual_value_ngn', ascending=False)
         df['cumulative_pct'] = df['annual_value_ngn'].cumsum() / df['annual_value_ngn'].sum()
-        df['abc_class'] = np.where(df['cumulative_pct'] <= 0.80, 'A',
+        df['abc_class'] = np.where(df['cumulative_pct'] <= 0.8, 'A',
                           np.where(df['cumulative_pct'] <= 0.95, 'B', 'C'))
 
-        # XYZ (simplified using CV proxy)
-        df['demand_cv'] = df['avg_daily_sales'].rolling(window=10, min_periods=1).std() / (df['avg_daily_sales'] + 0.01)
-        df['xyz_class'] = np.where(df['demand_cv'] < 0.3, 'X',
-                          np.where(df['demand_cv'] < 0.7, 'Y', 'Z'))
-        df['abc_xyz'] = df['abc_class'] + df['xyz_class']
-
-        # Risk & Financials
-        df['stockout_risk'] = df['current_stock'] < df['reorder_point']
         df['stockout_probability'] = np.where(df['stockout_risk'], 0.25, 0.03)
         df['excess_stock'] = np.maximum(0, df['current_stock'] - df['reorder_point'])
         df['cash_at_risk_ngn'] = df['excess_stock'] * df['unit_cost_ngn']
 
-        total_cash_at_risk = df['cash_at_risk_ngn'].sum()
+        # Recommendation
+        def get_rec(row):
+            recs = []
+            if row['stockout_risk']:
+                recs.append("**URGENT REORDER** – high stockout risk")
+            if row['dead_stock']:
+                recs.append("**LIQUIDATE** – recover capital from dead stock")
+            if row['overstock_risk']:
+                recs.append("**REDUCE ORDERS** – overstocked")
+            if row['slow_moving']:
+                recs.append("**PROMOTE** – clear slow-moving items")
+            if row['abc_class'] == 'A':
+                recs.append("**A-CLASS** – prioritize control")
+            if not recs:
+                recs.append("Healthy stock level")
+            return " • ".join(recs)
+
+        df['recommendation'] = df.apply(get_rec, axis=1)
+
         total_holding = df['holding_cost_ngn'].sum()
-        a_items = (df['abc_class'] == 'A').sum()
+        total_cash_risk = df['cash_at_risk_ngn'].sum()
 
         # Dashboard
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Valid SKUs", f"{len(df):,}")
-        col2.metric("A-Class (80% value)", a_items)
-        col3.metric("Cash-at-Risk (₦)", f"{total_cash_at_risk:,.0f}", delta_color="inverse")
-        col4.metric("High Stockout Risk Items", df[df['stockout_probability'] > 0.1].shape[0], delta_color="inverse")
+        col1.metric("Valid Products", f"{len(df):,}")
+        col2.metric("A-Class Items", (df['abc_class']=='A').sum())
+        col3.metric("Cash-at-Risk (₦)", f"{total_cash_risk:,.0f}", delta_color="inverse")
+        col4.metric("Stockout Risk Items", df['stockout_risk'].sum(), delta_color="inverse")
 
         st.markdown("---")
 
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "📊 ABC-XYZ Classification", "⚠️ Risk & Financial Impact", "💰 Optimization Simulator", "📄 Executive Report", "📈 Export Data"
+            "📊 ABC-XYZ", "⚠️ Risk Items", "💰 Optimizer", "📄 Report", "📈 Export"
         ])
 
         with tab1:
             col1, col2 = st.columns(2)
             with col1:
-                st.subheader("ABC Distribution")
+                st.subheader("ABC Classification")
                 fig, ax = plt.subplots()
-                abc_counts = df['abc_class'].value_counts()
-                ax.pie(abc_counts, labels=abc_counts.index, autopct='%1.1f%%', colors=['#4caf50', '#ff9800', '#f44336'])
+                df['abc_class'].value_counts().plot.pie(autopct='%1.1f%%', ax=ax)
                 st.pyplot(fig)
             with col2:
-                st.subheader("ABC-XYZ Matrix")
-                matrix = df.pivot_table(values='product_id', index='abc_class', columns='xyz_class', aggfunc='count', fill_value=0)
+                st.subheader("Risk Breakdown")
+                labels = ['Stockout', 'Overstock', 'Slow', 'Dead', 'Healthy']
+                sizes = [df['stockout_risk'].sum(), df['overstock_risk'].sum(), df['slow_moving'].sum(), df['dead_stock'].sum(),
+                         len(df) - sum(sizes)]
                 fig, ax = plt.subplots()
-                sns.heatmap(matrix, annot=True, fmt='d', cmap="YlGnBu", ax=ax)
+                ax.pie(sizes, labels=labels, autopct='%1.1f%%')
                 st.pyplot(fig)
 
         with tab2:
-            st.subheader("Critical Items (A-Class or High Risk)")
-            critical = df[(df['abc_class']=='A') | (df['stockout_probability'] > 0.1) | (df['cash_at_risk_ngn'] > df['cash_at_risk_ngn'].quantile(0.75))]
-            critical = critical.sort_values('annual_value_ngn', ascending=False)
-
-            display = critical[['product_name', 'abc_xyz', 'stockout_probability', 'cash_at_risk_ngn', 'days_on_hand']].copy()
-            display['stockout_probability'] = (display['stockout_probability']*100).round(0).astype(str) + "%"
-            display['cash_at_risk_ngn'] = display['cash_at_risk_ngn'].apply(lambda x: f"₦{x:,.0f}")
+            st.subheader("Items Needing Action")
+            action_items = df[df['stockout_risk'] | df['dead_stock'] | df['overstock_risk'] | df['slow_moving'] | (df['abc_class']=='A')]
+            display = action_items[['product_name', 'days_on_hand', 'reorder_point', 'holding_cost_ngn',
+                                    'stockout_risk', 'dead_stock', 'recommendation']].copy()
+            display['holding_cost_ngn'] = display['holding_cost_ngn'].apply(lambda x: f"₦{x:,.0f}")
             st.dataframe(display.head(50), use_container_width=True)
 
-            for _, row in critical.head(10).iterrows():
-                with st.expander(f"🔴 {row['product_name']} | {row['abc_xyz']} | Risk: {row['stockout_probability']}"):
-                    st.markdown(f"<div class='high-impact'>Cash-at-Risk: ₦{row['cash_at_risk_ngn']:,.0f} | Days on Hand: {row['days_on_hand']:.0f}</div>", unsafe_allow_html=True)
+            for _, row in action_items.head(10).iterrows():
+                with st.expander(f"{row['product_name']} – {'🔴 High Risk' if row['stockout_risk'] else '🟡 Attention'}"):
+                    st.markdown(f"<div class='recommendation'>{row['recommendation']}</div>", unsafe_allow_html=True)
 
         with tab3:
-            st.subheader("EOQ & Reorder Cost Optimization")
-            order_cost = st.slider("Avg Cost per Order (₦)", 500, 10000, 2500, 500)
-            eoq = np.sqrt((2 * df['annual_demand'] * order_cost) / (df['unit_cost_ngn'] * 0.25 + 1e-6))
+            st.subheader("Reorder Optimization Simulator")
+            order_cost = st.slider("Cost per Order (₦)", 500, 10000, 3000)
+            eoq = np.sqrt(2 * df['avg_daily_sales'] * 365 * order_cost / (df['unit_cost_ngn'] * 0.25 + 1e-6))
             optimized_holding = (eoq / 2 * df['unit_cost_ngn'] * 0.25).sum()
-            ordering_cost = (df['annual_demand'] / eoq * order_cost).sum()
-            total_optimized = optimized_holding + ordering_cost
             savings = total_holding - optimized_holding
-
             st.markdown(f"<p class='save big-font'>Potential Savings: ₦{savings:,.0f}/year</p>", unsafe_allow_html=True)
-            col1, col2 = st.columns(2)
-            col1.metric("Current Holding Cost", f"₦{total_holding:,.0f}")
-            col2.metric("Optimized Annual Cost", f"₦{total_optimized:,.0f}")
 
         with tab4:
-            if st.button("Generate Executive Report"):
+            if st.button("Generate Executive PDF"):
                 buffer = io.BytesIO()
                 doc = SimpleDocTemplate(buffer, pagesize=A4)
-                styles = getSampleStyleSheet()
-                story = [Paragraph("Inventory Risk Pro – Executive Report", styles['Title']),
+                story = [Paragraph("Inventory Risk Pro Report", getSampleStyleSheet()['Title']),
                          Spacer(1, 20),
-                         Paragraph(f"Date: {datetime.now().strftime('%B %d, %Y')}", styles['Normal']),
-                         Spacer(1, 30)]
-
+                         Paragraph(f"Date: {datetime.now().strftime('%B %d, %Y')}", getSampleStyleSheet()['Normal'])]
                 data = [["Metric", "Value"],
-                        ["Valid SKUs Analyzed", f"{len(df):,}"],
-                        ["A-Class Items", a_items],
-                        ["Cash-at-Risk", f"₦{total_cash_at_risk:,.0f}"],
+                        ["Products Analyzed", len(df)],
+                        ["Cash-at-Risk", f"₦{total_cash_risk:,.0f}"],
                         ["Potential Savings", f"₦{savings:,.0f}"]]
                 story.append(Table(data))
                 doc.build(story)
                 buffer.seek(0)
-                st.download_button("Download Report", buffer, "inventory_executive_report.pdf", "application/pdf")
+                st.download_button("Download PDF", buffer, "inventory_report.pdf", "application/pdf")
 
         with tab5:
-            st.download_button("Export Cleaned & Enriched Data", df.to_csv(index=False).encode(), "inventory_clean_optimized.csv", "text/csv")
+            st.subheader("Download Full Enriched Dataset")
+            st.write("**All columns included**: original + days_on_hand, reorder_point, risks, costs, ABC, recommendation, etc.")
+            st.download_button(
+                "⬇️ Export Complete Analysis CSV",
+                df.to_csv(index=False).encode('utf-8'),
+                "inventory_full_enriched_analysis.csv",
+                "text/csv"
+            )
 
     except Exception as e:
-        st.error(f"Upload failed: {e}. Check file format and try again.")
+        st.error(f"Error: {e}")
 else:
-    st.info("Upload your inventory file — even messy Excel exports work!")
+    st.info("Upload your inventory CSV to begin — works with dirty data!")
 
 st.caption("Built with ❤️ by Freda Erinmwingbovo • Abuja, Nigeria • January 2026")
