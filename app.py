@@ -1,6 +1,6 @@
 # ============================================================
-# app.py — Inventory Risk Pro (FINAL FIXED & COMPLETE)
-# All Columns • Bulletproof • Production-Grade
+# app.py — Inventory Risk Pro (FINAL FIXED & COMPLETE + EXCEL SUPPORT)
+# All Columns • Bulletproof • Production-Grade • CSV & Excel
 # Built by Freda Erinmwingbovo • Abuja, Nigeria • January 2026
 # ============================================================
 
@@ -32,13 +32,22 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown("<h1>📦 Inventory Risk Pro</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 22px;'>Bulletproof Enterprise Optimization • All Insights Exported</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; font-size: 22px;'>Bulletproof Enterprise Optimization • Supports CSV & Excel</p>", unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("📁 Upload your inventory CSV (handles messy data)", type="csv")
+uploaded_file = st.file_uploader("📁 Upload your inventory file (CSV or Excel)", type=["csv", "xlsx"])
 
 if uploaded_file is not None:
     try:
-        raw_df = pd.read_csv(uploaded_file)
+        file_name = uploaded_file.name
+        file_extension = file_name.split('.')[-1].lower()
+
+        if file_extension == 'xlsx':
+            raw_df = pd.read_excel(uploaded_file)
+            st.info("Excel file detected – reading with pd.read_excel")
+        else:
+            raw_df = pd.read_csv(uploaded_file)
+            st.info("CSV file detected – reading with pd.read_csv")
+
         initial_rows = len(raw_df)
 
         required = ['product_id', 'product_name', 'current_stock', 'avg_daily_sales',
@@ -212,6 +221,6 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Error: {e}")
 else:
-    st.info("Upload your inventory CSV to begin — works with dirty data!")
+    st.info("Upload your inventory file (CSV or Excel) to begin — works with dirty data!")
 
 st.caption("Built with ❤️ by Freda Erinmwingbovo • Abuja, Nigeria • January 2026")
